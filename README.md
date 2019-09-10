@@ -1,2 +1,1 @@
-# metaheuristics
- 
+# Metaheuristics Algorithms
