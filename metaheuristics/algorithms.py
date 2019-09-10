@@ -212,12 +212,7 @@ class SimulatedAnnealing(Metaheuristic):
             new = self.search_operator(current)  #  utils.pitch(current)
             pop.append(new)
 
-            try:
-                worst = new > current
-            except:
-                print(current.sequence)
-                print(new.sequence)
-                raise
+            worst = new > current
             if worst:
                 deltas.append(new - current)
             else:
