@@ -177,6 +177,11 @@ class Genetic(Metaheuristic):
         o1, o2 = self.crossover(p1, p2)
         o1 = self.problem.solution(sequence=o1)
         o2 = self.problem.solution(sequence=o2)
+
+        if random.random() < self.prob_mutation:
+            o1 = self.search_operator(o1)
+            o2 = self.search_operator(o2)
+
         while not all((o1.correct, o2.correct)):
             o1, o2 = self.crossover(p1, p2)
             o1 = self.problem.solution(sequence=o1)
