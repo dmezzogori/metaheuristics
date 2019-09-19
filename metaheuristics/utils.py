@@ -142,6 +142,7 @@ def pairwise(iterable, step=1):
 
 
 def weights(iterable):
+    iterable = tuple(math.exp(e) for e in iterable)
     tot = sum(e for e in iterable)
     return [e / tot for e in iterable]
 
