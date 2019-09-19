@@ -168,7 +168,9 @@ class Metaheuristic(abc.ABC):
 class Genetic(Metaheuristic):
     def __init__(self, problem, *args, **kwargs):
         kwargs.setdefault("pop_size", problem.difficulty)
-        kwargs.setdefault("crossover", utils.order_crossover)
+        kwargs.setdefault("crossover", utils.discrete_order_crossover)
+        kwargs.setdefault("prob_mutation", 0.2)
+        kwargs.setdefault("search_operator", utils.pitch)
         super().__init__(problem, *args, **kwargs)
 
     def mate(self, p1, p2):
