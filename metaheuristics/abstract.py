@@ -9,6 +9,7 @@ class Problem(abc.ABC):
     def config(self):
         ...
 
+    @property
     @abc.abstractmethod
     def random_solution(self):
         ...
