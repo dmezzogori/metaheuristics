@@ -111,14 +111,34 @@ def order_crossover(p1, p2, cut_points=None):
         cut1 = random.randint(1, mid_point)
         cut2 = random.randint(mid_point + 1, high)
 
+    return cut1, cut2
+
+
+def discrete_order_crossover(p1, p2, cut_points=None):
+    cut1, cut2 = generate_cut_points(cut_points, len(p1))
+
     center1 = p1[cut1:cut2]
     center2 = p2[cut1:cut2]
+
     remainder_p2 = [i for i in p2 if i not in center1]
     left_p2, right_p2 = remainder_p2[:cut1], remainder_p2[cut1:]
+    
     o1 = left_p2 + center1 + right_p2
+    
     remainder_p1 = [i for i in p1 if i not in center2]
     left_p1, right_p1 = remainder_p1[:cut1], remainder_p1[cut1:]
+    
     o2 = left_p1 + center2 + right_p1
+    
+    return o1, o2
+
+
+def continuous_order_crossover(p1, p2, cut_points=None):
+    cut1, cut2 = generate_cut_points(cut_points, len(p1))
+        
+    o1 = p2[:cut1] + p1[cut1:cut2] + p2[cut2:]
+    o2 = p1[:cut1] + p2[cut1:cut2] + p1[cut2:]
+    
     return o1, o2
 
 
