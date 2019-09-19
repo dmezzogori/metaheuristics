@@ -160,6 +160,22 @@ def pitch(sol, pos1=None, pos2=None):
     return pitched
 
 
+def tweak(n, length, mu, sigma):
+
+    def inner(sol):
+
+        tweaked = copy.copy(sol)
+        tweaked_seq = list(tweaked.sequence)
+        for i in range(n):
+            pos = random.randint(0, length-1)
+            tweaked_seq[pos] = tweaked_seq[pos] + random.gauss(mu, sigma)
+        tweaked.sequence = tweaked_seq
+
+        return tweaked
+
+    return inner
+
+
 def roulette_wheel(iterable, size=None, replace=False):
     return np.random.choice(
         len(iterable), size=size or len(iterable), replace=replace, p=weights(iterable)
