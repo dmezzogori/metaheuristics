@@ -24,7 +24,7 @@ class Metaheuristic(abc.ABC):
         self.config = kwargs
 
     def __repr__(self):
-        return f"Metaheuristic(problem={self.problem!r}, **{self.config})"
+        return f"{self.__class__.__name__}(problem={self.problem!r}, **{self.config})"
 
     def __str__(self):
         if not self.best_population:
