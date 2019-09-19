@@ -19,6 +19,53 @@ def worker(args):
     return copy.deepcopy(solver)
 
 
+class BaseSolutionMixin:
+    
+    def __repr__(self):
+        return f"{self.sequence} - {round(self.cost, 2)}"
+
+    def __getitem__(self, index):
+        return self.sequence[index]
+
+    def __setitem__(self, index, value):
+        self.sequence[index] = value
+        self.__cost = None
+
+    def __hash__(self):
+        return hash(tuple(self.sequence))
+
+    def __eq__(self, other):
+        return self.sequence == other.sequence
+
+    def __lt__(self, other):
+        return self.cost < other.cost
+
+    def __gt__(self, other):
+        return self.cost > other.cost
+
+    def __len__(self):
+        return len(self.sequence)
+
+    def __add__(self, other):
+        if isinstance(other, (int, float)):
+            return self.cost + other
+        return self.cost + other.cost
+
+    def __radd__(self, other):
+        return Solution.__add__(self, other)
+
+    def __sub__(self, other):
+        return self.cost - other.cost
+
+    def __rsub__(self, other):
+        return Solution.__sub__(self, other)
+
+    def __truediv__(self, other):
+        if isinstance(other, (int, float)):
+            return self.cost / other
+        return self.cost / other.cost
+
+
 class Race:
     def __init__(self, solvers):
         self.solvers = solvers
