@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name = 'metaheuristics',
     packages = ['metaheuristics'],
-    version = '0.1',
+    version = '0.2',
     license='gpl-3.0',
     description = 'A collection of Metaheuristics Algorithms',
     author = 'Davide Mezzogori',
