@@ -102,11 +102,11 @@ def bar(iterable):
     return bar(iterable)
 
 
-def order_crossover(p1, p2, cut_points=None):
+def generate_cut_points(cut_points, n):
     if cut_points:
         cut1, cut2 = cut_points
     else:
-        high = len(p1) - 1
+        high = n - 1
         mid_point = int(high / 2)
         cut1 = random.randint(1, mid_point)
         cut2 = random.randint(mid_point + 1, high)
