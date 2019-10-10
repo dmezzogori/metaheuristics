@@ -216,7 +216,7 @@ class SimulatedAnnealing(Metaheuristic):
         pop = [current]
         deltas = []
         for _ in range(self.n_iters):
-            new = self.search_operator(current)  #  utils.pitch(current)
+            new = self.search_operator(current)
             pop.append(new)
 
             worst = new > current
@@ -249,19 +249,50 @@ class SimulatedAnnealing(Metaheuristic):
 
         neighborhood = []
         for _ in range(self.neighborhood_size):
-            new = self.search_operator(current)  #  utils.pitch(current)
+            new = self.search_operator(current)
 
             if new < self.best_solution:
                 return [new]
 
             neighborhood.append(new)
             if self.recursive:
-                # current = copy.copy(new)
                 current = new
 
         best_neighbor = min(neighborhood)
 
         return [best_neighbor] if self.accept(best_neighbor) else pop
+
+
+class TabuSearch(Metaheuristic):
+
+    pop_size = 1
+
+    def __init__(self, problem, *args, **kwargs):
+        kwargs.setdefault("neighborhood_size", 2 * problem.difficulty)
+        kwargs.setdefault("tabu_list_length", 4 * problem.difficulty)
+        self.tabu_list = []
+        super().__init__(problem, *args, **kwargs)
+
+    def _run(self):
+        pop = self.population
+        current = pop[0]
+
+        neighborhood = []
+        for _ in range(self.neighborhood_size):
+            new = self.search_operator(current)
+
+            if new not in self.tabu_list:
+                neighborhood.append(new)
+
+        best_neighbor = min(neighborhood)
+        self.tabu_list.append(best_neighbor)
+        if len(self.tabu_list) > self.tabu_list_length:
+            self.tabu_list.pop(0)
+
+        if best_neighbor < current:
+            return [best_neighbor]
+
+        return pop
 
 
 class HarmonySearch(Metaheuristic):
