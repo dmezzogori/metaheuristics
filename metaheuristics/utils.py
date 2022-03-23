@@ -1,7 +1,10 @@
 
 import copy
 import math
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    pass
 import numpy as np
 import pickle
 import progressbar
@@ -205,7 +208,7 @@ def nthwise(iterable, n, step=1):
 
 
 def pairwise(iterable, step=1):
-    return nthwise(iterable, step=step, n=2)
+    return nthwise(iterable, n=2, step=step)
 
 
 def weights(iterable):
@@ -243,10 +246,22 @@ def tweak(n, length, mu, sigma):
     return inner
 
 
+#def roulette_wheel(iterable, size=None, replace=False):
+#    return np.random.choice(
+#        len(iterable), size=size or len(iterable), replace=replace, p=weights(iterable)
+#    )#.tolist()
+
+
 def roulette_wheel(iterable, size=None, replace=False):
-    return np.random.choice(
-        len(iterable), size=size or len(iterable), replace=replace, p=weights(iterable)
-    ).tolist()
+    size = size or len(iterable)
+    w = weights(iterable)
+    out = []
+    options = list(range(len(iterable)))
+    while len(out) != size:
+        e = random.choices(options, k=1, weights=w)[0]
+        if replace or e not in out:
+            out.append(e)
+    return out
 
 
 def uniqueness(iterable):

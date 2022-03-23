@@ -6,9 +6,14 @@ import statistics
 import time
 
 from colorama import Fore, Style
+from collections import defaultdict
 from itertools import chain, permutations
 from functools import total_ordering
 from metaheuristics import utils
+
+from multiprocessing import Pool
+
+import dill
 
 
 @total_ordering
@@ -284,13 +289,14 @@ class TabuSearch(Metaheuristic):
             if new not in self.tabu_list:
                 neighborhood.append(new)
 
-        best_neighbor = min(neighborhood)
-        self.tabu_list.append(best_neighbor)
-        if len(self.tabu_list) > self.tabu_list_length:
-            self.tabu_list.pop(0)
+        if neighborhood:
+            best_neighbor = min(neighborhood)
+            self.tabu_list.append(best_neighbor)
+            if len(self.tabu_list) > self.tabu_list_length:
+                self.tabu_list.pop(0)
 
-        if best_neighbor < current:
-            return [best_neighbor]
+            if best_neighbor < current:
+                return [best_neighbor]
 
         return pop
 
@@ -336,7 +342,7 @@ class HarmonySearch(Metaheuristic):
         new_harmony = self.harmony_memory_consideration()
 
         if random.random() < self.par:
-            new_harmony = self.search_operator(new_harmony)  #  utils.pitch(new_harmony)
+            new_harmony = self.search_operator(new_harmony)
         if new_harmony < self.worst_solution:
             harmony_memory[utils.argmax(harmony_memory)] = new_harmony
 
@@ -492,12 +498,12 @@ class ModifiedCuckooSearch(CuckooSearch, SimulatedAnnealing):
             split = int(len(pop) * self.p_split)
             bests = pop[:split]
             for i, sol in enumerate(bests):
-                new = self.search_operator(sol)  #  utils.pitch(sol)
+                new = self.search_operator(sol)
                 idx = -split + i
                 pop[idx] = copy.copy(new)
                 self.starting_points[idx] = copy.copy(new)
 
-        if not sum(self.useless_attempts):
+        if sum(self.useless_attempts) == 0:
             which_cuckoo = random.randint(0, len(pop) - 1)
         else:
             which_cuckoo = utils.roulette_wheel(self.useless_attempts, size=1)[0]
@@ -554,7 +560,254 @@ class Exaustive(Metaheuristic):
         ...
 
 
-class ParticleSwarmOptimization(Metaheuristic):
+class TSPParticleSwarmOptimization(Metaheuristic):
 
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError()
+    def __init__(self, problem, *args, **kwargs):
+        kwargs.setdefault("pop_size", problem.difficulty)
+        kwargs.setdefault("weights", [1., 1., 1.])
+        kwargs.setdefault('n_groups', kwargs['pop_size'] // 5)
+        super().__init__(problem, *args, **kwargs)
+
+    def __iter__(self):
+        self = super().__iter__()
+
+        self.p_bests = copy.deepcopy(self.population)
+        self.g_best = min(self.population)
+        
+        self.particle_to_group = {particle: random.randint(0, self.n_groups - 1) for particle in range(self.pop_size)}
+        self.group_to_particles = defaultdict(list)
+        for particle, group in self.particle_to_group.items():
+            self.group_to_particles[group].append(particle)
+
+        self.g_bests = {}
+        for group, particles in self.group_to_particles.items():
+            self.g_bests[group] = min(self.population[particle_idx] for particle_idx in particles)
+
+        return self
+
+    def move(self, i, particle, p_best):
+
+        dists = self.problem.distance_matrix
+
+        new = copy.copy(particle)
+        new_seq = []
+
+        current_node = 0
+        g_best = self.g_bests[self.particle_to_group[i]]
+        for nodes in zip(particle, p_best, g_best):
+            weighted_dists = tuple(weight / dists[current_node][node] for weight, node in zip(self.weights, nodes))
+            candidates_idxs = utils.roulette_wheel(weighted_dists)
+            
+            for idx in candidates_idxs:
+                current_node = nodes[idx]
+                if current_node not in new_seq:
+                    break
+            else:
+                while True:
+                    current_node = random.choice(
+                        random.choice((particle, p_best, g_best)))
+                    
+                    if current_node not in new_seq:
+                        break
+
+            new_seq.append(current_node)
+
+        new.sequence = new_seq
+        if random.random() < self.prob_mutation:
+            new = self.search_operator(new)
+
+        return new
+
+    def _run(self):
+        particles = self.population
+
+        for i, (particle, p_best) in enumerate(zip(particles, self.p_bests)):
+            new = self.move(i, particle, p_best)
+
+            particles[i] = new
+
+            if new < p_best:
+                self.p_bests[i] = new
+
+            if new < self.g_bests[self.particle_to_group[i]]:
+                self.g_bests[self.particle_to_group[i]] = new
+
+            if new < self.g_best:
+                self.g_best = new
+
+        return particles
+
+
+class TSPParticleSwarmOptimizationParallel(Metaheuristic):
+
+    def __init__(self, problem, *args, **kwargs):
+        kwargs.setdefault("pop_size", problem.difficulty)
+        kwargs.setdefault("weights", [1., 1., 1.])
+        kwargs.setdefault('n_groups', kwargs['pop_size'] // 5)
+        super().__init__(problem, *args, **kwargs)
+
+    def __iter__(self):
+        self = super().__iter__()
+
+        self.p_bests = copy.deepcopy(self.population)
+        self.g_best = min(self.population)
+        
+        self.particle_to_group = {particle: random.randint(0, self.n_groups - 1) for particle in range(self.pop_size)}
+        self.group_to_particles = defaultdict(list)
+        for particle, group in self.particle_to_group.items():
+            self.group_to_particles[group].append(particle)
+
+        self.g_bests = {}
+        for group, particles in self.group_to_particles.items():
+            self.g_bests[group] = min(self.population[particle_idx] for particle_idx in particles)
+
+        return self
+
+    def move(self, t):
+
+        i, particle, p_best = t
+
+        dists = self.problem.distance_matrix
+
+        new = copy.copy(particle)
+        new_seq = []
+
+        current_node = 0
+        g_best = self.g_bests[self.particle_to_group[i]]
+        for nodes in zip(particle, p_best, g_best):
+            weighted_dists = tuple(weight / dists[current_node][node] for weight, node in zip(self.weights, nodes))
+            candidates_idxs = utils.roulette_wheel(weighted_dists)
+            
+            for idx in candidates_idxs:
+                current_node = nodes[idx]
+                if current_node not in new_seq:
+                    break
+            else:
+                while True:
+                    current_node = random.choice(
+                        random.choice((particle, p_best, g_best)))
+                    
+                    if current_node not in new_seq:
+                        break
+
+            new_seq.append(current_node)
+
+        new.sequence = new_seq
+        if random.random() < self.prob_mutation:
+            new = self.search_operator(new)
+
+        # controllare che vada bene qui
+        if new < p_best:
+            self.p_bests[i] = new
+
+        if new < self.g_bests[self.particle_to_group[i]]:
+            self.g_bests[self.particle_to_group[i]] = new
+
+        if new < self.g_best:
+            self.g_best = new
+        
+        return new
+
+    # def _run(self):
+    #     particles = self.population
+
+    #     for i, (particle, p_best) in enumerate(zip(particles, self.p_bests)):
+    #         new = self.move(i, particle, p_best)
+
+    #         particles[i] = new
+
+    #         if new < p_best:
+    #             self.p_bests[i] = new
+
+    #         if new < self.g_bests[self.particle_to_group[i]]:
+    #             self.g_bests[self.particle_to_group[i]] = new
+
+    #         if new < self.g_best:
+    #             self.g_best = new
+
+    #     return particles
+
+
+    def _run(self):
+        particles = self.population
+        
+        new_particles = []
+
+        todo = [(i, particle, p_best) for i, (particle, p_best) in enumerate(zip(particles, self.p_bests))]
+
+        with Pool(6) as pool:
+            multiple_results = pool.map_async(
+                self.move, todo, callback=new_particles.extend)
+            multiple_results.wait()
+
+        multiple_results.get()
+
+        particles = new_particles
+
+        return particles
+
+
+class AntColonyOptimization(Metaheuristic):
+
+    pop_size = 1
+
+    def __init__(self, problem, *args, **kwargs):
+        kwargs.setdefault('q', 2.0)
+        kwargs.setdefault('ro', 0.9)
+        kwargs.setdefault('alpha', 1.0)
+        kwargs.setdefault('beta', 5.0)
+        kwargs.setdefault('pher_init', 0.1)
+        kwargs.setdefault('always_evaporate', False)
+        super().__init__(problem, *args, **kwargs)
+
+    def __iter__(self):
+        self = super().__iter__()
+        self.distance_matrix = self.problem.distance_matrix
+        self.pheromons = defaultdict(lambda: defaultdict(lambda: 0))
+        for node_a in self.problem.random_solution.sequence + [0]:
+            for node_b in self.problem.random_solution:
+                self.pheromons[node_a][node_b] = self.pher_init
+        return self
+
+    def move(self, current):
+        dists = self.problem.distance_matrix
+
+        new = self.problem.random_solution
+        new_seq = []
+
+        current_node = 0
+        while len(new_seq) != len(new.sequence):
+            probs = {
+                node: (pher ** self.alpha) / (self.distance_matrix[current_node][node] ** self.beta)
+                if node not in new_seq else 0
+                for node, pher in self.pheromons[current_node].items()
+            }
+            current_node = random.choices(
+                tuple(probs.keys()),
+                weights=tuple(probs.values()), k=1)[0]
+            new_seq.append(current_node)
+
+        new.sequence = new_seq
+        return new
+
+    def evaporate_pheromons(self):
+        for phers in self.pheromons.values():
+            for node in phers:
+                phers[node] *= self.ro
+
+    def add_pheromons(self, solution):
+        for node_a, node_b in utils.pairwise(solution):
+            self.pheromons[node_a][node_b] += self.q / self.distance_matrix[node_a][node_b]
+
+    def _run(self):
+        current = self.population[0]
+        new = self.move(current)
+
+        if self.always_evaporate:
+            self.evaporate_pheromons()
+
+        if new < self.best_solution:
+            self.evaporate_pheromons()
+            self.add_pheromons(new)
+
+        return [new]
